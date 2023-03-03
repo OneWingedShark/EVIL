@@ -55,4 +55,10 @@ Package EVIL with Pure, SPARK_Mode => On is
 Private
    USE_EXCEPTIONS : Constant Boolean:= False;
 
+   Generic
+      Type Result is (<>);
+      Default : in Result;
+   Function Generic_Default_Index return Result
+   with Inline, Pure_Function;
+
 End EVIL;

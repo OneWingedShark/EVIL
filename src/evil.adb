@@ -2,6 +2,9 @@ With
 Ada.Unchecked_Conversion;
 
 Package Body EVIL with SPARK_Mode => On is
+   Function Generic_Default_Index return Result is
+     (if USE_EXCEPTIONS then raise No_Index else Default)
+   with SPARK_Mode => Off;
 
 
    ---------------
