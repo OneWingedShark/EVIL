@@ -11,11 +11,11 @@ Package Body EVIL.Util.Files with SPARK_Mode => On is
 	with Procedure Init_File(
 	    File : in out File_Type;
 	    Mode : File_Mode;
-	    Name : String := Empty_String;
-	    Form : String := Empty_String
+	    Name : S.String := S.Empty_String;
+	    Form : S.String := S.Empty_String
 	   );
-    Function Generic_Make( Name : String; Mode : File_Mode ) return File;
-    Function Generic_Make( Name : String; Mode : File_Mode ) return File is
+    Function Generic_Make( Name : S.String; Mode : File_Mode ) return File;
+    Function Generic_Make( Name : S.String; Mode : File_Mode ) return File is
 	Use Ada.Finalization;
     Begin
 	Return Result : File := (Limited_Controlled with Others => <>) do
@@ -47,31 +47,31 @@ Package Body EVIL.Util.Files with SPARK_Mode => On is
     -- INSTANTIATIONS --
     --------------------
 
-    Function Create_File is new Generic_Make( Init_File => Create  );
-    Function Open_File   is new Generic_Make( Init_File => Open    );
-    Function Get_Mode    is new Generic_Function( File_Mode, Mode  );
-    Function Get_Name    is new Generic_Function( String, Name     );
-    Function Get_Form    is new Generic_Function( String, Form     );
-    Function Get_Open    is new Generic_Function( Boolean, Is_Open );
-    Procedure Do_Close   is new Generic_FileOp  ( Close            );
-    Procedure Do_Delete  is new Generic_FileOp  ( Delete           );
-    Procedure Do_Reset   is new Generic_FileOp  ( Reset            );
+    Function  Create_File is new Generic_Make( Init_File => Create  );
+    Function  Open_File   is new Generic_Make( Init_File => Open    );
+    Function  Get_Mode    is new Generic_Function( File_Mode, Mode  );
+    Function  Get_Name    is new Generic_Function( S.String, Name   );
+    Function  Get_Form    is new Generic_Function( S.String, Form   );
+    Function  Get_Open    is new Generic_Function( Boolean, Is_Open );
+    Procedure Do_Close    is new Generic_FileOp  ( Close            );
+    Procedure Do_Delete   is new Generic_FileOp  ( Delete           );
+    Procedure Do_Reset    is new Generic_FileOp  ( Reset            );
 
 
     -------------
     -- RENAMES --
     -------------
 
-    Function Create( Name : String; Mode : File_Mode ) return File
+    Function Create( Name : S.String; Mode : File_Mode ) return File
     renames Create_File;
 
-    Function Open( Name : String; Mode : File_Mode ) return File
+    Function Open( Name : S.String; Mode : File_Mode ) return File
     renames Open_File;
 
 
     Function Mode  ( Object : File ) return File_Mode	renames Get_Mode;
-    Function Name  ( Object : File ) return String	renames Get_Name;
-    Function Form  ( Object : File ) return String	renames Get_Form;
+    Function Name  ( Object : File ) return S.String	renames Get_Name;
+    Function Form  ( Object : File ) return S.String	renames Get_Form;
     Function Open  ( Object : File ) return Boolean	renames Get_Open;
 
     Procedure Close  (Object  : in out File)		renames Do_Close;
