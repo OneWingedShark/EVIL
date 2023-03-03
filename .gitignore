@@ -23,6 +23,8 @@ ali/
 ali/**
 ali/*.*
 
+# The compiled form of the library.
+*.a
 
 # =========================
 # Operating System Files
