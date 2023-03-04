@@ -1,6 +1,4 @@
 With
---Ada.Text_IO,
-Ada.Containers.Indefinite_Vectors,
 Ada.Unchecked_Deallocation;
 
 Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
@@ -100,7 +98,6 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
                      when VEB.Full    => Count:= Count + 2;
                      when VEB.Empty   => All_Full:= False;
                         Object.Contents.Update_Element( Exclude_Key'Access );
-                        --Partial(Element).Data.Exclude( Partial_Map.Key(X) );
                      when VEB.Single  => All_Full:= False;
                         Count:= Natural'Succ(Count);
                         Index:= Partial_Map.Key(X);
@@ -109,32 +106,18 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
                   end case;
                End Evaluate;
 
+               package VS renames VEB_Subtree;
                Parts    : Partial renames Partial(Element);
                This     : Partial_Map.Map renames Parts.Data;
             Begin
                This.Reverse_Iterate( Process => Evaluate'Access );
                Case Count is
-                  when 0 => Object.Contents.Replace_Element(
-                        Empty'(Ada.Finalization.Controlled with others => <>)
-                       );
-                  when 1 =>
-                     Declare
-                        Value : Constant Tagged_Interface.Index :=
-                          Index ** VEB_Subtree.Max(This(Index));
-                     Begin
-                        Object.Contents.Clear;
-                        Object.Contents:= Holder.To_Holder(
-                           Single'(Ada.Finalization.Controlled
-                             with Value => Value)
-                          );
-
-                     End;
+                  when 0 => Make_Empty( Object );
+                  when 1 => Make_Single(Object, Index ** VS.Max(This(Index)));
                   when others =>
                      if All_Full and then
                        (For all X in Galaxy => This.Contains(X)) then
-                        Object.Contents.Replace_Element(
-                           Full'(Ada.Finalization.Controlled with others => <>)
-                          );
+                        Make_Full( Object );
                      end if;
                End case;
             End SCANNER;
@@ -145,7 +128,6 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
       Function Contains (Object : in     Partial;
                          Key    : in     Index) return Boolean is
         (  VEB_Subtree.Contains( Object.Data( High(Key) ), Low(Key) )  );
-      --( VEB.Contains( Object.Data(High(Key)), Low(Key) ) );
 
       Function Min      (Object : in     Partial)  return Index  is
         ( Object.Data.First_Key ** VEB_Subtree.Min(Object.Data.First_Element) );
@@ -268,22 +250,22 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
       Function State_Of (Object : in     VEB_Tree) return Tree_State is
         (  Object.Contents.Element.State_Of  );
 
-      Function Is_Empty (Object : in     VEB_Tree) return Boolean    is
+      Function Is_Empty (Object : in     VEB_Tree)  return Boolean is
         (  Object.Contents.Is_Empty or else Object.Contents.Element.Is_Empty  );
 
-      Function Is_Full  (Object : in     VEB_Tree) return Boolean    is
+      Function Is_Full  (Object : in     VEB_Tree)  return Boolean is
         (  Object.Contents.Element.Is_Full  );
 
-      Function Min      (Object : in     VEB_Tree) return Index      is
+      Function Min      (Object : in     VEB_Tree)  return Index   is
         (  Object.Contents.Element.Min  );
 
-      Function Max      (Object : in     VEB_Tree) return Index      is
+      Function Max      (Object : in     VEB_Tree)  return Index   is
         (  Object.Contents.Element.Max  );
 
-      Function First    (Object : in     VEB_Tree)   return Index   is
+      Function First    (Object : in     VEB_Tree)  return Index   is
         (  Object.Contents.Element.First  );
 
-      Function Last     (Object : in     VEB_Tree)   return Index   is
+      Function Last     (Object : in     VEB_Tree)  return Index   is
         (  Object.Contents.Element.Last  );
 
       -- Returns the next USED key.
@@ -292,19 +274,16 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
         (  Object.Contents.Element.Succ(Key)  );
 
       Function Pred     (Object     : in     VEB_Tree;
-                         Key        : in     Index)  return Index   is
+                         Key        : in     Index)  return Index  is
         (  Object.Contents.Element.Pred(Key)  );
 
-      Procedure Include (Object     : in out VEB_Tree; Key: Index)  is
+      Procedure Include (Object     : in out VEB_Tree; Key: Index) is
          This : Holder.Holder renames Object.Contents;
          Item : Controlled_Indexed'Class renames This.Element;
       Begin
          Case Item.State_Of is
          when VEB.Full    => null;
-         when VEB.Empty   =>
-            This.Replace_Element( Single'(Ada.Finalization.Controlled with
-                                  Value => Key
-                                 ));
+         when VEB.Empty   => Make_Single( Object, Key );
          when VEB.Partial =>
             Declare
                H_K   : Constant Galaxy:= High( Key );
@@ -332,10 +311,10 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
             Object.Adjust;
          when VEB.Single  =>
             Declare
-               Value : Constant Index := Single(Item).Value;
+               Value : Index renames Single(Item).Value;
             Begin
                if Value /= Key then
-                  This.Replace_Element( Create_Partial(Value, Key) );
+                  Make_Partial( Object, V1 => Value, V2 => Key );
                end if;
             End;
          end case;
@@ -346,8 +325,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          Item : Controlled_Indexed'Class renames This.Element;
       Begin
          Case Item.State_Of is
-         when VEB.Full    =>
-            This.Replace_Element( Create_Partial( Excluded_1 => Key ) );
+         when VEB.Full    => Make_Partial(Object, E1 => Key);
          when VEB.Empty   => null;
          when VEB.Partial =>
             Declare
@@ -370,19 +348,54 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
             Object.Adjust;
          when VEB.Single  =>
             if Key = Single(Item).Value then
-               This.Replace_Element(
-                  Empty'(Ada.Finalization.Controlled with others => <>)
-                 );
+               Make_Empty( Object );
             end if;
          end case;
       End Exclude;
 
+      Procedure Make_Empty  (Object : in out VEB_Tree) is
+      Begin
+         Object.Contents.Replace_Element(
+            New_Item => Empty'(Ada.Finalization.Controlled with others => <>)
+           );
+      End Make_Empty;
+
+      Procedure Make_Full   (Object : in out VEB_Tree) is
+      Begin
+         Object.Contents.Replace_Element(
+            New_Item => Full'(Ada.Finalization.Controlled with others => <>)
+           );
+      End Make_Full;
+
+      Procedure Make_Single (Object : in out VEB_Tree; Value : Index) is
+      Begin
+         Object.Contents.Replace_Element(
+            New_Item => Single'(Ada.Finalization.Controlled with Value => Value)
+           );
+      End Make_Single;
+
+      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Index) is
+      Begin
+         Object.Contents.Replace_Element(
+            New_Item => Create_Partial(Included_1 => V1, Included_2 =>  V2)
+           );
+      End Make_Partial;
+
+      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Index) is
+      Begin
+         Object.Contents.Replace_Element(
+            New_Item => Create_Partial(Excluded_1 => E1)
+           );
+      End Make_Partial;
+
+
+      -----------------
+      --  DEBUGGING  --
+      -----------------
+
       Function DEBUG_IMAGE(Object : in     VEB_Tree) return String
       with SPARK_Mode => Off is
-         Package String_Vector is new Ada.Containers.Indefinite_Ordered_Maps
-           (
-            --              "<"          => ,
-            --              "="          => ,
+         Package String_Vector is new Ada.Containers.Indefinite_Ordered_Maps(
             Key_Type     => Galaxy,
             Element_Type => String
            );

@@ -129,10 +129,14 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function Default return Controlled_Indexed'Class is
         (  Empty'(Ada.Finalization.Controlled with others => <>)  );
 
+      Procedure Make_Empty  (Object : in out VEB_Tree) with Inline;
+      Procedure Make_Full   (Object : in out VEB_Tree) with Inline;
+      Procedure Make_Single (Object : in out VEB_Tree; Value : Index) with Inline;
+      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Index) with Inline;
+      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Index) with Inline;
+
       Type VEB_Tree is new Ada.Finalization.Controlled and Indexed with record
-         Contents : Holder.Holder:= Holder.To_Holder(
-          Default
-           );
+         Contents : Holder.Holder:= Holder.To_Holder(  Default  );
       end record;
 --      with Type_Invariant => not Holder.Is_Empty( VEB_Tree.Contents );
 
