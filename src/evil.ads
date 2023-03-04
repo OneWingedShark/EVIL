@@ -47,13 +47,13 @@ Package EVIL with Pure, SPARK_Mode => On is
 
 
    -- An enumeration for [sub]trees, for optimizing representation space-wise.
-   Type Tree_State is (Empty, Single, Partial, Full)
-     with Size => 2;
+--     Type Tree_State is (Empty, Single, Partial, Full)
+--       with Size => 2;
 
 
    No_Index       : Exception;
 Private
-   USE_EXCEPTIONS : Constant Boolean:= False;
+   USE_EXCEPTIONS : Constant Boolean:= FALSE;
 
    Generic
       Type Result is (<>);
