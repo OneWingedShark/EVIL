@@ -4,13 +4,13 @@ Ada.Unchecked_Deallocation;
 Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
    Package Body Implementation with SPARK_Mode => On is
 
-      Function Create_Partial(Included_1, Included_2 : Index) return Partial is
+      Function Create_Partial(Included_1, Included_2 : Universe) return Partial is
          -- Produce a subtree that is empty.
          Function Tree(Is_Full : Boolean := FALSE) return Subtree
           renames VEB_Subtree.Create;
 
          -- Ensure that maps contain the KEY before attempting to add the Value.
-         Procedure Safe_Add(Value : Index; Object : in out Partial) with Inline is
+         Procedure Safe_Add(Value : Universe; Object : in out Partial) with Inline is
             Use Partial_Map, VEB_Subtree;
             Hi   : Galaxy renames High(Value);
             Lo   : Galaxy renames Low (Value);
@@ -39,7 +39,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          end return;
       End Create_Partial;
 
-      Function Create_Partial(Excluded_1 : Index) return Partial is
+      Function Create_Partial(Excluded_1 : Universe) return Partial is
          Function Tree(Is_Full : Boolean := TRUE) return Subtree
           renames VEB_Subtree.Create;
       Begin
@@ -124,18 +124,28 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          End case;
       End Adjust;
 
+      Function Create   (Is_Full : in     Boolean:= False) return VEB_Tree is
+      Begin
+         Return Result : VEB_Tree do
+            if Is_Full then
+               Make_Full(Result);
+            else
+               Make_Empty(Result);
+            end if;
+         end return;
+      End Create;
 
       Function Contains (Object : in     Partial;
-                         Key    : in     Index) return Boolean is
+                         Key    : in     Universe) return Boolean is
         (  VEB_Subtree.Contains( Object.Data( High(Key) ), Low(Key) )  );
 
-      Function Min      (Object : in     Partial)  return Index  is
+      Function Min      (Object : in     Partial)  return Universe  is
         ( Object.Data.First_Key ** VEB_Subtree.Min(Object.Data.First_Element) );
 
-      Function Max      (Object : in     Partial)  return Index  is
+      Function Max      (Object : in     Partial)  return Universe  is
         ( Object.Data.Last_Key ** VEB_Subtree.Max(Object.Data.Last_Element) );
 
-      Function First    (Object : in     Partial) return Index  is
+      Function First    (Object : in     Partial) return Universe  is
       Begin
          For Index in Galaxy loop
             Begin
@@ -155,7 +165,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          raise No_Index; -- Since this tree is PARTIAL, this should never happen.
       End First;
 
-      Function Last     (Object : in     Partial) return Index  is
+      Function Last     (Object : in     Partial) return Universe  is
       Begin
          For Index in reverse Galaxy loop
             Begin
@@ -176,7 +186,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
       End Last;
 
       Function Succ     (Object     : in     Partial;
-                         Key        : in     Index) return Index is
+                         Key        : in     Universe) return Universe is
       Begin
          Return High(Key) ** VEB_Subtree.Succ( Object.Data(High(Key)), Low(Key) );
       Exception
@@ -202,7 +212,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
 
       -- Returns the previous USED key.
       Function Pred     (Object     : in     Partial;
-                         Key        : in     Index) return Index is
+                         Key        : in     Universe) return Universe is
       Begin
          Return High(Key) ** VEB_Subtree.Pred(Object.Data(High(Key)), Low(Key));
       Exception
@@ -227,7 +237,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
             Raise No_Index;
       End Pred;
 
-      Procedure Include (Object     : in out Partial; Key : Index) is
+      Procedure Include (Object     : in out Partial; Key : Universe) is
       Begin
          if not Object.Data.Contains( High(Key) ) then
             Object.Data.Insert(New_Item  => VEB_Subtree.Create(Full => False),
@@ -237,7 +247,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          VEB_Subtree.Include( Object.Data(High(Key)), Low(Key) );
       End Include;
 
-      Procedure Exclude (Object     : in out Partial; Key : Index) is
+      Procedure Exclude (Object     : in out Partial; Key : Universe) is
       Begin
          VEB_Subtree.Exclude( Object.Data(High(Key)), Low(Key) );
       End Exclude;
@@ -256,28 +266,28 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
       Function Is_Full  (Object : in     VEB_Tree)  return Boolean is
         (  Object.Contents.Element.Is_Full  );
 
-      Function Min      (Object : in     VEB_Tree)  return Index   is
+      Function Min      (Object : in     VEB_Tree)  return Universe   is
         (  Object.Contents.Element.Min  );
 
-      Function Max      (Object : in     VEB_Tree)  return Index   is
+      Function Max      (Object : in     VEB_Tree)  return Universe   is
         (  Object.Contents.Element.Max  );
 
-      Function First    (Object : in     VEB_Tree)  return Index   is
+      Function First    (Object : in     VEB_Tree)  return Universe   is
         (  Object.Contents.Element.First  );
 
-      Function Last     (Object : in     VEB_Tree)  return Index   is
+      Function Last     (Object : in     VEB_Tree)  return Universe   is
         (  Object.Contents.Element.Last  );
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     VEB_Tree;
-                         Key        : in     Index) return Index   is
+                         Key        : in     Universe) return Universe   is
         (  Object.Contents.Element.Succ(Key)  );
 
       Function Pred     (Object     : in     VEB_Tree;
-                         Key        : in     Index)  return Index  is
+                         Key        : in     Universe)  return Universe  is
         (  Object.Contents.Element.Pred(Key)  );
 
-      Procedure Include (Object     : in out VEB_Tree; Key: Index) is
+      Procedure Include (Object     : in out VEB_Tree; Key: Universe) is
          This : Holder.Holder renames Object.Contents;
          Item : Controlled_Indexed'Class renames This.Element;
       Begin
@@ -311,7 +321,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
             Object.Adjust;
          when VEB.Single  =>
             Declare
-               Value : Index renames Single(Item).Value;
+               Value : Universe renames Single(Item).Value;
             Begin
                if Value /= Key then
                   Make_Partial( Object, V1 => Value, V2 => Key );
@@ -320,7 +330,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          end case;
       End Include;
 
-      Procedure Exclude (Object     : in out VEB_Tree; Key: Index)  is
+      Procedure Exclude (Object     : in out VEB_Tree; Key: Universe)  is
          This : Holder.Holder renames Object.Contents;
          Item : Controlled_Indexed'Class renames This.Element;
       Begin
@@ -367,21 +377,21 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
            );
       End Make_Full;
 
-      Procedure Make_Single (Object : in out VEB_Tree; Value : Index) is
+      Procedure Make_Single (Object : in out VEB_Tree; Value : Universe) is
       Begin
          Object.Contents.Replace_Element(
             New_Item => Single'(Ada.Finalization.Controlled with Value => Value)
            );
       End Make_Single;
 
-      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Index) is
+      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Universe) is
       Begin
          Object.Contents.Replace_Element(
             New_Item => Create_Partial(Included_1 => V1, Included_2 =>  V2)
            );
       End Make_Partial;
 
-      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Index) is
+      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Universe) is
       Begin
          Object.Contents.Replace_Element(
             New_Item => Create_Partial(Excluded_1 => E1)
@@ -462,7 +472,7 @@ Package Body EVIL.vEB.Tagged_Interface with SPARK_Mode => On is
          (case Object.State_Of is
              when VEB.Full    => "F:*",
              when VEB.Empty   => "E: ",
-             when VEB.Single  => "S:" & Index'Image(Single(Item).Value),
+             when VEB.Single  => "S:" & Universe'Image(Single(Item).Value),
              when VEB.Partial => "P:" & DEBUG_IMAGE(Partial(Item))
          ) & ')';
       End DEBUG_IMAGE;

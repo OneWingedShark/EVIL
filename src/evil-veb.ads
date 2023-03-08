@@ -24,7 +24,7 @@ EVIL.Bitvectors;
 --	* BASE:			Interface for tagged-type derrivation.
 --	* VEB_BYTE:		A VEB using a single byte.     ( 8-element set.)
 --	* VEB_WORD:		A VEB using a 64-bit integer.  (64-element set.)
-Package EVIL.vEB with Pure, SPARK_Mode => On, Elaborate_Body is
+Package EVIL.vEB with Pure, Remote_Types, SPARK_Mode => On, Elaborate_Body is
 
    -- Enumeration of the various states of a VEB tree; this is used in the
    -- tagged-type implementations of the trees for space-optimization.
@@ -41,74 +41,72 @@ Package EVIL.vEB with Pure, SPARK_Mode => On, Elaborate_Body is
    Function State_Of (Object  : in     Base) return Tree_State is abstract;
    Function Is_Empty (Object  : in     Base) return Boolean    is abstract;
    Function Is_Full  (Object  : in     Base) return Boolean    is abstract;
---     Function Create   (Object  : in     Base;
---                        Is_Full : in     Boolean:= False
---                       )                       return Boolean    is abstract;
+   Function Create   (Is_Full : in     Boolean:= False) return Base is abstract;
 
-   ---
-
+   -- VEB_INTERFACE
+   --
    -- This generic defines the core interface of the VEB data-structure, it is
-   -- NOT a tagget type for two reasons (1) to allow for the usage of bitvectors
+   -- NOT a tagged type for two reasons (1) to allow for the usage of bitvectors
    -- [for "small" types w/o the overhead of the tag] and other non-tagged types
    -- to implement the interface; and (2) to allow for the [semi-]recursive
    -- construction in terms of the interface.
    Generic
       -- The Index type.
-      Type Int_X     is (<>);
+      Type Int_X    is (<>);
 
       -- Any non-limited type with which to implement/represent a VEB [sub]tree.
-      Type VEB_X(<>) is private;
+      Type Tree(<>) is private;
 
       -- Creates a VEB subtree, either empty or with all elements set.
-      with Function Create   (Full    : Boolean:= False) return VEB_X    is <>;
+      with Function Create   (Full    : Boolean:= False) return Tree    is <>;
 
       -- Returns the state of the tree; this is useful in optimizing operations.
       -- EXAMPLE: for an EMPTY tree, we know that the first available element is
       -- the first item of INT_X, whereas with a SINGLE we can query the MIN and
       -- if the value is the first return the second, otherwise it is the first.
-      with Function State_Of ( Object : in     VEB_X ) return Tree_State is <>;
+      with Function State_Of ( Object : in     Tree ) return Tree_State is <>;
 
       -- Functions querying the general state of the tree; these are  included
       -- for the convienience of having a BOOLEAN return vaule, as well as for
       -- allowing the optimization of the generic-construction's implementation
       -- of the STATE_OF function when applied to a subtree; example:
-      --	Is_Empty(O: VEB_X) -> (for all X of O.SUBTREE => Is_Empty(X))
-      with Function Is_Empty ( Object : in     VEB_X ) return Boolean    is <>;
-      with Function Is_Full  ( Object : in     VEB_X ) return Boolean    is <>;
+      --	Is_Empty(O: Tree) -> (for all X of O.SUBTREE => Is_Empty(X))
+      with Function Is_Empty ( Object : in     Tree ) return Boolean    is <>;
+      with Function Is_Full  ( Object : in     Tree ) return Boolean    is <>;
 
       -- For a non-leaf [sub]tree, the CONTAINS function is recursive on the
       -- size of the index, reducing the index bit-size by half each time; this
       -- is how fast lookup times are achieved: partitioning the structure being
       -- indexed into SQRT(INDEX_SIZE) groups of SQRT(INDEX_SIZE) elements.
-      with Function Contains ( Object : in     VEB_X;
-                               Key    : in     Int_X ) return Boolean    is <>;
+      with Function Contains ( Object : in     Tree;
+                               Key    : in     Int_X ) return Boolean   is <>;
 
       -- Return the extremes of the tree; this is useful for optimizing the
       -- SUCC and PRED functions; example:
       --	if X >= MAX(O) then there is no sucessor-element in the tree.
-      with Function Min      ( Object : in     VEB_X ) return Int_X      is <>;
-      with Function Max      ( Object : in     VEB_X ) return Int_X      is <>;
+      with Function Min      ( Object : in     Tree ) return Int_X      is <>;
+      with Function Max      ( Object : in     Tree ) return Int_X      is <>;
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      with Function First    ( Object : in     VEB_X ) return Int_X      is <>;
+      with Function First    ( Object : in     Tree ) return Int_X      is <>;
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      with Function Last     ( Object : in     VEB_X ) return Int_X      is <>;
+      with Function Last     ( Object : in     Tree ) return Int_X      is <>;
 
       -- Returns the next USED key.
-      with Function Succ ( Object     : in     VEB_X;
-                           Key        : in     Int_X ) return Int_X      is <>;
+      with Function Succ ( Object     : in     Tree;
+                           Key        : in     Int_X ) return Int_X     is <>;
       -- Returns the previous USED key.
-      with Function Pred ( Object     : in     VEB_X;
-                           Key        : in     Int_X ) return Int_X      is <>;
+      with Function Pred ( Object     : in     Tree;
+                           Key        : in     Int_X ) return Int_X     is <>;
 
       -- Operations to set or remove an element within the tree.
-      with Procedure Include ( Object : in out VEB_X; Key : Int_X )      is <>;
-      with Procedure Exclude ( Object : in out VEB_X; Key : Int_X )      is <>;
+      with Procedure Include ( Object : in out Tree; Key : Int_X )      is <>;
+      with Procedure Exclude ( Object : in out Tree; Key : Int_X )      is <>;
 
       ---------------
       -- DEBUGGING --
       ---------------
-      with Function DEBUG_IMAGE ( Object : in VEB_X ) return String      is <>;
+      with Function DEBUG_IMAGE ( Object : in Tree ) return String      is <>;
 
    Package VEB_Interface is
    End VEB_Interface;
@@ -121,7 +119,7 @@ Package EVIL.vEB with Pure, SPARK_Mode => On, Elaborate_Body is
 
       with Package Galaxy_VEB is new VEB_Interface(
          Int_X  => Galaxy,
-         VEB_X  => Subtree,
+         Tree   => Subtree,
          others => <>
         );
       with Package Galactic_Bitvector is new EVIL.Generic_Bitvector(

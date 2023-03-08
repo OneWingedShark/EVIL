@@ -16,28 +16,31 @@ Ada.Containers.Indefinite_Ordered_Maps;
 --				index-type (of twice the bits), and attendant
 --				conversion-functions to produce a VEB-subtree.
 Generic
-   Type Index is (<>);
+   Type Universe is (<>);
 Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode => On is
 
    Type Indexed is interface and Base
    with Preelaborable_Initialization;
 
-   Function Min      (Object : in     Indexed)   return Index   is abstract;
-   Function Max      (Object : in     Indexed)   return Index   is abstract;
+   Function Min      (Object : in     Indexed)   return Universe   is abstract;
+   Function Max      (Object : in     Indexed)   return Universe   is abstract;
 
    -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-   Function First    (Object : in     Indexed)   return Index   is abstract;
+   Function First    (Object : in     Indexed)   return Universe   is abstract;
    -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-   Function Last     (Object : in     Indexed)   return Index   is abstract;
+   Function Last     (Object : in     Indexed)   return Universe   is abstract;
 
    -- Returns the next USED key.
    Function Succ     (Object     : in     Indexed;
-                      Key        : in     Index) return Index   is abstract;
+                      Key        : in     Universe) return Universe   is abstract;
    -- Returns the previous USED key.
    Function Pred     (Object     : in     Indexed;
-                      Key        : in     Index) return Index   is abstract;
-   Procedure Include (Object     : in out Indexed; Key: Index)  is abstract;
-   Procedure Exclude (Object     : in out Indexed; Key: Index)  is abstract;
+                      Key        : in     Universe) return Universe   is abstract;
+   Procedure Include (Object     : in out Indexed; Key: Universe)  is abstract;
+   Procedure Exclude (Object     : in out Indexed; Key: Universe)  is abstract;
+
+   Function  Contains(Object     : in     Indexed;
+                      Key        : in     Universe) return Boolean is abstract;
 
    -- EVIL.vEB.Tagged_Interface.Implementation
    --	This package takes the SUBTREE, its and instantiation of VEB_INTERFACE
@@ -53,12 +56,12 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
    Generic
       Type Galaxy      is (<>);
       Type Subtree(<>) is private;
-      with Function High(Input : Index) return Galaxy is <>;
-      with Function Low (Input : Index) return Galaxy is <>;
-      with Function "**"(Left, Right : Galaxy)  return Index  is <>;
+      with Function High(Input : Universe) return Galaxy is <>;
+      with Function Low (Input : Universe) return Galaxy is <>;
+      with Function "**"(Left, Right : Galaxy)  return Universe  is <>;
       --with Function "=" (Left, Right : Subtree) return Boolean is <>;
       with Package VEB_Subtree is new EVIL.VEB.VEB_Interface
-        (Int_X => Galaxy, VEB_X => Subtree, others => <>);
+        (Int_X => Galaxy, Tree => Subtree, others => <>);
    Package Implementation with SPARK_Mode => On is
 
 
@@ -74,33 +77,37 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function State_Of (Object : in     VEB_Tree) return Tree_State;
       Function Is_Empty (Object : in     VEB_Tree) return Boolean;
       Function Is_Full  (Object : in     VEB_Tree) return Boolean;
-      Function Min      (Object : in     VEB_Tree) return Index;
-      Function Max      (Object : in     VEB_Tree) return Index;
+      Function Min      (Object : in     VEB_Tree) return Universe;
+      Function Max      (Object : in     VEB_Tree) return Universe;
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      Function First    (Object : in     VEB_Tree)   return Index;
+      Function First    (Object : in     VEB_Tree)   return Universe;
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      Function Last     (Object : in     VEB_Tree)   return Index;
+      Function Last     (Object : in     VEB_Tree)   return Universe;
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     VEB_Tree;
-                         Key        : in     Index) return Index;
+                         Key        : in     Universe) return Universe;
       -- Returns the previous USED key.
       Function Pred     (Object     : in     VEB_Tree;
-                         Key        : in     Index)  return Index;
-      Procedure Include (Object     : in out VEB_Tree; Key: Index);
-      Procedure Exclude (Object     : in out VEB_Tree; Key: Index);
+                         Key        : in     Universe)  return Universe;
+      Procedure Include (Object     : in out VEB_Tree; Key: Universe);
+      Procedure Exclude (Object     : in out VEB_Tree; Key: Universe);
+
+
 
       Function DEBUG_IMAGE (Object : in     VEB_Tree) return String;
+
    Private
       Type Controlled_Indexed is abstract new Ada.Finalization.Controlled
            and Indexed
       with null record;
 
+      -- INTERNALS
+      -- Contains the generic instantiations, which cannot be proved via SPARK,
+      -- and are needed for implementing the PARTIAL Controlled_Indexed type.
       Package Internals with SPARK_Mode => Off is
          Package Partial_Map is new Ada.Containers.Indefinite_Ordered_Maps(
-            --           "<"          => ,
-            --           "="          => ,
             Key_Type     => Galaxy,
             Element_Type => Subtree
            );
@@ -110,37 +117,52 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Type Empty   is new Controlled_Indexed with null Record;
       Type Full    is new Controlled_Indexed with null Record;
       Type Single  is new Controlled_Indexed with record
-         Value : Index;
+         Value : Universe;
       end record;
       Type Partial is new Controlled_Indexed with Record
          Data : Partial_Map.Map:= Partial_Map.Empty_Map;
       End record;
 
       -- Given two values, create an object that contains those two items.
-      Function Create_Partial(Included_1, Included_2 : Index) return Partial;
+      Function Create_Partial(Included_1, Included_2 : Universe) return Partial;
 
       -- Given a single value, create an object that contains all other values.
-      Function Create_Partial(Excluded_1             : Index) return Partial;
+      Function Create_Partial(Excluded_1             : Universe) return Partial;
 
-
+      -- The HOLDER-type this instantiation defines is only used to hold the
+      -- Controlled_Indexed'Class objects for which public operations are passed
+      -- through; we could have used an incomplete type declared in the private-
+      -- section and had the VEB_TREE simply be a pointer to *that*.
       Package Holder is new Ada.Containers.Indefinite_Holders
         (Element_Type => Controlled_Indexed'Class);
 
-      Function Default return Controlled_Indexed'Class is
-        (  Empty'(Ada.Finalization.Controlled with others => <>)  );
 
       Procedure Make_Empty  (Object : in out VEB_Tree) with Inline;
       Procedure Make_Full   (Object : in out VEB_Tree) with Inline;
-      Procedure Make_Single (Object : in out VEB_Tree; Value : Index) with Inline;
-      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Index) with Inline;
-      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Index) with Inline;
+      Procedure Make_Single (Object : in out VEB_Tree; Value : Universe) with Inline;
+      Procedure Make_Partial(Object : in out VEB_Tree; V1, V2: Universe) with Inline;
+      Procedure Make_Partial(Object : in out VEB_Tree; E1    : Universe) with Inline;
 
+      -- Construct an EMPTY tree; used in the default value for the HOLDER-type.
+      Function Default return Controlled_Indexed'Class is
+        (  Empty'(Ada.Finalization.Controlled with others => <>)  ) with Inline;
+
+      -- VEB_TREE is merely a holder for the actual various tree-types (those of
+      -- the CONTROLLED_INDEXED'Class) and virtually all operations are passed-
+      -- through to the contained object; VEB_TREE.ADJUST is used to transition
+      -- the PARTIAL trees to other classes when applicable.
       Type VEB_Tree is new Ada.Finalization.Controlled and Indexed with record
          Contents : Holder.Holder:= Holder.To_Holder(  Default  );
-      end record;
---      with Type_Invariant => not Holder.Is_Empty( VEB_Tree.Contents );
+      end record
+      with Type_Invariant => not Holder.Is_Empty( VEB_Tree.Contents ),
+           Preelaborable_Initialization;
 
+      -- Pass-through for CONTAINS.
+      Function  Contains(Object     : in     VEB_Tree;
+                         Key        : in     Universe) return Boolean is
+         ( Object.Contents.Element.Contains(Key) );
 
+      Function Create   (Is_Full : in     Boolean:= False) return VEB_Tree;
 
       -------------
       --  EMPTY  --
@@ -149,23 +171,23 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function Is_Empty (Object : in     Empty)  return Boolean is (True);
       Function Is_Full  (Object : in     Empty)  return Boolean is (False);
       Function Contains (Object : in     Empty;
-                         Key    : in     Index)  return Boolean is (False);
-      Function Min      (Object : in     Empty)  return Index   is (raise No_Index);
-      Function Max      (Object : in     Empty)  return Index   is (raise No_Index);
+                         Key    : in     Universe)  return Boolean is (False);
+      Function Min      (Object : in     Empty)  return Universe   is (raise No_Index);
+      Function Max      (Object : in     Empty)  return Universe   is (raise No_Index);
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      Function First    (Object : in     Empty) return Index   is (Index'First);
+      Function First    (Object : in     Empty) return Universe   is (Universe'First);
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      Function Last     (Object : in     Empty) return Index  is (Index'Last);
+      Function Last     (Object : in     Empty) return Universe  is (Universe'Last);
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     Empty;
-                         Key        : in     Index) return Index is (Key);
+                         Key        : in     Universe) return Universe is (Key);
       -- Returns the previous USED key.
       Function Pred     (Object     : in     Empty;
-                         Key        : in     Index) return Index is (Key);
-      Procedure Include (Object     : in out Empty; Key:Index) is null; --(raise Program_Error);
-      Procedure Exclude (Object     : in out Empty; Key:Index) is null; --(raise Program_Error);
+                         Key        : in     Universe) return Universe is (Key);
+      Procedure Include (Object     : in out Empty; Key:Universe) is null; --(raise Program_Error);
+      Procedure Exclude (Object     : in out Empty; Key:Universe) is null; --(raise Program_Error);
       function State_Of( Object : in Empty ) return Tree_State  is
         (VEB.Empty);
 
@@ -176,25 +198,25 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function Is_Empty (Object : in     Full)  return Boolean is (False);
       Function Is_Full  (Object : in     Full)  return Boolean is (True);
       Function Contains (Object : in     Full;
-                         Key    : in     Index) return Boolean is (True);
-      Function Min      (Object : in     Full)  return Index  is (Index'First);
-      Function Max      (Object : in     Full)  return Index  is (Index'Last);
+                         Key    : in     Universe) return Boolean is (True);
+      Function Min      (Object : in     Full)  return Universe  is (Universe'First);
+      Function Max      (Object : in     Full)  return Universe  is (Universe'Last);
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      Function First    (Object : in     Full) return Index  is (raise No_Index);
+      Function First    (Object : in     Full) return Universe  is (raise No_Index);
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      Function Last     (Object : in     Full) return Index  is (raise No_Index);
+      Function Last     (Object : in     Full) return Universe  is (raise No_Index);
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     Full;
-                         Key        : in     Index) return Index is
-        (if Key /= Index'Last then Index'Succ(Key) else raise No_Index);
+                         Key        : in     Universe) return Universe is
+        (if Key /= Universe'Last then Universe'Succ(Key) else raise No_Index);
       -- Returns the previous USED key.
       Function Pred     (Object     : in     Full;
-                         Key        : in     Index) return Index is
-        (if Key /= Index'First then Index'Pred(Key) else raise No_Index);
-      Procedure Include (Object     : in out Full; Key:Index) is null; --(raise Program_Error);
-      Procedure Exclude (Object     : in out Full; Key:Index) is null; --(raise Program_Error);
+                         Key        : in     Universe) return Universe is
+        (if Key /= Universe'First then Universe'Pred(Key) else raise No_Index);
+      Procedure Include (Object     : in out Full; Key:Universe) is null; --(raise Program_Error);
+      Procedure Exclude (Object     : in out Full; Key:Universe) is null; --(raise Program_Error);
 
       function State_Of( Object : in Full) return Tree_State  is
         (VEB.Full);
@@ -206,28 +228,28 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function Is_Empty (Object : in     Single)  return Boolean is (False);
       Function Is_Full  (Object : in     Single)  return Boolean is (False);
       Function Contains (Object : in     Single;
-                         Key    : in     Index) return Boolean is
+                         Key    : in     Universe) return Boolean is
         (Key = Object.Value);
-      Function Min      (Object : in     Single)  return Index  is (Object.Value);
-      Function Max      (Object : in     Single)  return Index  is (Object.Value);
+      Function Min      (Object : in     Single)  return Universe  is (Object.Value);
+      Function Max      (Object : in     Single)  return Universe  is (Object.Value);
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      Function First    (Object : in     Single) return Index  is
-        (if Object.Value /= Index'First then Index'First else Index'Succ(Index'First));
+      Function First    (Object : in     Single) return Universe  is
+        (if Object.Value /= Universe'First then Universe'First else Universe'Succ(Universe'First));
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      Function Last     (Object : in     Single) return Index  is
-        (if Object.Value /= Index'Last then Index'Last else Index'Pred(Index'Last));
+      Function Last     (Object : in     Single) return Universe  is
+        (if Object.Value /= Universe'Last then Universe'Last else Universe'Pred(Universe'Last));
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     Single;
-                         Key        : in     Index) return Index is
+                         Key        : in     Universe) return Universe is
         (if Key < Object.Value then Object.Value else raise No_Index);
       -- Returns the previous USED key.
       Function Pred     (Object     : in     Single;
-                         Key        : in     Index) return Index is
+                         Key        : in     Universe) return Universe is
         (if Key > Object.Value then Object.Value else raise No_Index);
-      Procedure Include (Object     : in out Single; Key: Index) is null; --(raise Program_Error);
-      Procedure Exclude (Object     : in out Single; Key: Index) is null; --(raise Program_Error);
+      Procedure Include (Object     : in out Single; Key: Universe) is null; --(raise Program_Error);
+      Procedure Exclude (Object     : in out Single; Key: Universe) is null; --(raise Program_Error);
 
       function State_Of( Object : in Single ) return Tree_State  is
         (VEB.Single);
@@ -244,28 +266,37 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       Function Is_Empty (Object : in     Partial)  return Boolean is (False);
       Function Is_Full  (Object : in     Partial)  return Boolean is (False);
       Function Contains (Object : in     Partial;
-                         Key    : in     Index) return Boolean;
-      Function Min      (Object : in     Partial)  return Index;
-      Function Max      (Object : in     Partial)  return Index;
+                         Key    : in     Universe) return Boolean;
+      Function Min      (Object : in     Partial)  return Universe;
+      Function Max      (Object : in     Partial)  return Universe;
 
       -- Returns the first AVAILABLE key; NOTE: This is not the next key.
-      Function First    (Object : in     Partial) return Index;
+      Function First    (Object : in     Partial) return Universe;
       -- Returns the last AVAILABLE key; NOTE: This is not the previous key.
-      Function Last     (Object : in     Partial) return Index;
+      Function Last     (Object : in     Partial) return Universe;
 
       -- Returns the next USED key.
       Function Succ     (Object     : in     Partial;
-                         Key        : in     Index) return Index;
+                         Key        : in     Universe) return Universe;
       -- Returns the previous USED key.
       Function Pred     (Object     : in     Partial;
-                         Key        : in     Index) return Index;
-      Procedure Include (Object     : in out Partial; Key:Index);
-      Procedure Exclude (Object     : in out Partial; Key:Index);
+                         Key        : in     Universe) return Universe;
+      Procedure Include (Object     : in out Partial; Key:Universe);
+      Procedure Exclude (Object     : in out Partial; Key:Universe);
 
       function State_Of( Object : in Partial ) return Tree_State  is
         (VEB.Partial);
 
 
+
+      Function Create   (Is_Full : in     Boolean:= False) return Empty   is
+        (raise Program_Error);
+      Function Create   (Is_Full : in     Boolean:= False) return Full    is
+        (raise Program_Error);
+      Function Create   (Is_Full : in     Boolean:= False) return Single  is
+        (raise Program_Error);
+      Function Create   (Is_Full : in     Boolean:= False) return Partial is
+        (raise Program_Error);
 
       -----------------------
       --  CLASS FUNCTIONS  --
@@ -279,5 +310,6 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
       --          );
 
    End Implementation;
+
 
 End EVIL.vEB.Tagged_Interface;
