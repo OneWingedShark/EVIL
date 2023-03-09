@@ -111,7 +111,23 @@ Package EVIL.vEB with Pure, Remote_Types, SPARK_Mode => On, Elaborate_Body is
    Package VEB_Interface is
    End VEB_Interface;
 
-   -- Given X / bitvector implementation
+   -- VEB_CONSTRUCTION
+   --
+   -- Given:
+   --	* An index "Universe", of cardinality U;
+   --	* An index "Galaxy", which is cardinality G, which is SQRT(U);
+   --	* A "Subtree" type;
+   --	* An instantiation of VEB_Interface, on Subtree and Galaxy;
+   --	* An instantiation of a BITVECTOR on Galaxy;
+   --	* Operations to split a Universe (U_x) into two Galaxies, High and Low;
+   --	* An operation to combine two Galaxies into a Universe, High**Low = U_x;
+   --	* where combining the splits return the value.
+   --
+   -- We can construct a VEB-tree for Universe, using the Subtree to store the
+   -- element in |G| Galaxies.
+   --
+   -- NOTE:	Since this uses an array indexed by Galaxy of Subtree components
+   --	it is not recommended for large Universes.
    Generic
       Type Universe is (<>);
       Type Galaxy   is (<>);
@@ -186,6 +202,10 @@ Package EVIL.vEB with Pure, Remote_Types, SPARK_Mode => On, Elaborate_Body is
 
       Package This_Interface is new VEB_Interface( Universe, Universe_VEB );
    Private
+      Pragma Assert((1+Galaxy'Pos(Galaxy'Last)-Galaxy'Pos(Galaxy'First))**2 =
+                     1+Universe'Pos(Universe'Last)-Universe'Pos(Universe'First),
+                    "Assertion: |Galaxy| must be SQRT(|Universe|)."
+                   );
       Function Is_Full(Object : Galactic_Cluster) return Boolean is
         (for all X of Object => Galaxy_VEB.Is_Full(X));
    End VEB_Construction;

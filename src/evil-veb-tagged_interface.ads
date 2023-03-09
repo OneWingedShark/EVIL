@@ -288,7 +288,7 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
         (VEB.Partial);
 
 
-
+      -- CREATE of the CONTROLLED_INDEXED'Class types is never called.
       Function Create   (Is_Full : in     Boolean:= False) return Empty   is
         (raise Program_Error);
       Function Create   (Is_Full : in     Boolean:= False) return Full    is
@@ -305,10 +305,6 @@ Package EVIL.vEB.Tagged_Interface with Preelaborate, Remote_Types, SPARK_Mode =>
         (if Is_Full then Full' (Ada.Finalization.Controlled with others => <>)
          else            Empty'(Ada.Finalization.Controlled with others => <>)
         );
-      --          (if Is_Full then  Full'(Ada.Finalization.Controlled with others => <>)
-      --           else            Empty'(Ada.Finalization.Controlled with others => <>)
-      --          );
-
    End Implementation;
 
 
